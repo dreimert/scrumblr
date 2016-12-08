@@ -3,7 +3,6 @@
 **************/
 var	http = require('http');
 var sys = require('sys');
-var	async = require('async');
 var sanitizer = require('sanitizer');
 var compression = require('compression');
 var express = require('express');
@@ -14,7 +13,7 @@ var ga = require('./config.js').googleanalytics;
  LOCAL INCLUDES
 **************/
 var	rooms	= require('./lib/rooms.js');
-var	data	= require('./lib/data.js').db;
+var	db	= new (require('./lib/mongodb.js').db)();
 
 /**************
  GLOBALS
@@ -165,16 +164,16 @@ io.sockets.on('connection', function (client) {
 				clean_data.colour = scrub(data.colour);
 
 				getRoom(client, function(room) {
-					createCard( room, clean_data.id, clean_data.text, clean_data.x, clean_data.y, clean_data.rot, clean_data.colour);
+					createCard( room, clean_data.id, clean_data.text, clean_data.x, clean_data.y, clean_data.rot, clean_data.colour, function (newCardId) {
+						clean_data.id = newCardId;
+						message_out = {
+							action: 'createCard',
+							data: clean_data
+						};
+						//report to all other browsers
+						rooms.broadcast_room(room, message_out )
+					});
 				});
-
-				message_out = {
-					action: 'createCard',
-					data: clean_data
-				};
-
-				//report to all other browsers
-				broadcastToRoom( client, message_out );
 				break;
 
 			case 'editCard':
@@ -340,7 +339,6 @@ function initClient ( client )
 
 		});
 
-
 		db.getAllColumns ( room, function (columns) {
 			client.json.send(
 				{
@@ -349,7 +347,6 @@ function initClient ( client )
 				}
 			);
 		});
-
 
 		db.getTheme( room, function(theme) {
 
@@ -429,7 +426,7 @@ function broadcastToRoom ( client, message ) {
 }
 
 //----------------CARD FUNCTIONS
-function createCard( room, id, text, x, y, rot, colour ) {
+function createCard( room, id, text, x, y, rot, colour, callback ) {
 	var card = {
 		id: id,
 		colour: colour,
@@ -440,7 +437,7 @@ function createCard( room, id, text, x, y, rot, colour ) {
 		sticker: null
 	};
 
-	db.createCard(room, id, card);
+	db.createCard(room, id, card, callback);
 }
 
 function roundRand( max )
@@ -467,35 +464,3 @@ function setUserName ( client, name )
 	//console.log('sids to user names: ');
 	console.dir(sids_to_user_names);
 }
-
-function cleanAndInitializeDemoRoom()
-{
-	// DUMMY DATA
-	db.clearRoom('/demo', function() {
-		db.createColumn( '/demo', 'Not Started' );
-		db.createColumn( '/demo', 'Started' );
-		db.createColumn( '/demo', 'Testing' );
-		db.createColumn( '/demo', 'Review' );
-		db.createColumn( '/demo', 'Complete' );
-
-
-		createCard('/demo', 'card1', 'Hello this is fun', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'yellow');
-		createCard('/demo', 'card2', 'Hello this is a new story.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'white');
-		createCard('/demo', 'card3', '.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'blue');
-		createCard('/demo', 'card4', '.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'green');
-
-		createCard('/demo', 'card5', 'Hello this is fun', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'yellow');
-		createCard('/demo', 'card6', 'Hello this is a new card.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'yellow');
-		createCard('/demo', 'card7', '.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'blue');
-		createCard('/demo', 'card8', '.', roundRand(600), roundRand(300), Math.random() * 10 - 5, 'green');
-	});
-}
-//
-
-/**************
- SETUP DATABASE ON FIRST RUN
-**************/
-// (runs only once on startup)
-var db = new data(function() {
-	cleanAndInitializeDemoRoom();
-});

@@ -94,7 +94,7 @@ function getMessage(m) {
             break;
 
         case 'createCard':
-            //console.log(data);
+            // console.log('RECEIVED createCard', data);
             drawNewCard(data.id, data.text, data.x, data.y, data.rot, data.colour,
                 null);
             break;
@@ -347,7 +347,7 @@ function addSticker(cardId, stickerId) {
 // cards
 //----------------------------------
 function createCard(id, text, x, y, rot, colour) {
-    drawNewCard(id, text, x, y, rot, colour, null);
+    // drawNewCard(id, text, x, y, rot, colour, null);
 
     var action = "createCard";
 
